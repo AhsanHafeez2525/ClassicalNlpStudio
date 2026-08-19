@@ -34,6 +34,7 @@ export type AnalyzeResult = {
   sentiment: Sentiment;
   tfidf: TfidfItem[];
   keywords: string[];
+  nltk_tokens?: string[];
 };
 
 export async function analyzeText(text: string): Promise<AnalyzeResult> {

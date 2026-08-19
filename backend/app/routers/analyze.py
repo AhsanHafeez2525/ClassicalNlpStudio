@@ -8,10 +8,8 @@ router = APIRouter()
 
 class AnalyzeIn(BaseModel):
     text: str
-    save: bool = False
 
 
 @router.post("/analyze")
 def analyze(body: AnalyzeIn, request: Request):
-    _ = body.save
     return run_analyze(request.app.state.nlp, body.text)

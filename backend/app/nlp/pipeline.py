@@ -65,4 +65,5 @@ def run_analyze(nlp, text: str) -> dict:
         "sentiment": sentiment.analyze(prepared),
         "tfidf": tfidf_rows,
         "keywords": keywords.extract(tfidf_rows, doc),
+        "nltk_tokens": tokenize.nltk_tokens(prepared),
     }

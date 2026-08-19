@@ -1,8 +1,14 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 
-import { analyzeText, type AnalyzeResult } from "@/lib/api";
+import { analyzeText, type AnalyzeResult, type TfidfItem } from "@/lib/api";
+import {
+  NER_LEGEND,
+  labelClass,
+  prepareForOffsets,
+  segmentsFromOffsets,
+} from "@/lib/nerHighlight";
 
 const DEMO_TEXT =
   "Apple is looking at buying a U.K. startup for $1 billion. The deal could be announced next week. I am very happy about this news.";
@@ -18,11 +24,66 @@ function badgeClass(label: string): string {
   return "bg-zinc-200 text-zinc-700 border-zinc-300";
 }
 
+function TokenList({ tokens }: { tokens: string[] }) {
+  return (
+    <p className="mt-2 flex flex-wrap gap-1">
+      {tokens.map((token, index) => (
+        <span
+          key={`${token}-${index}`}
+          className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 font-mono text-xs"
+        >
+          {token}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+function WordCloud({ items }: { items: TfidfItem[] }) {
+  if (items.length === 0) {
+    return <p className="mt-2 text-sm text-zinc-600">No TF-IDF terms.</p>;
+  }
+  const scores = items.map((item) => item.score);
+  const min = Math.min(...scores);
+  const max = Math.max(...scores);
+  return (
+    <p className="mt-2 flex flex-wrap items-end gap-x-3 gap-y-2">
+      {items.map((item) => {
+        const t = max === min ? 0.5 : (item.score - min) / (max - min);
+        const size = 0.75 + t * 1.35;
+        return (
+          <span
+            key={item.term}
+            className="leading-none text-zinc-800"
+            style={{ fontSize: `${size}rem` }}
+          >
+            {item.term}
+          </span>
+        );
+      })}
+    </p>
+  );
+}
+
+function exportResultJson(result: AnalyzeResult) {
+  const blob = new Blob([JSON.stringify(result, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "result.json";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Home() {
   const [text, setText] = useState("");
+  const [analyzedText, setAnalyzedText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const empty = useMemo(() => text.trim().length === 0, [text]);
 
@@ -36,14 +97,36 @@ export default function Home() {
     setError(null);
     try {
       const data = await analyzeText(text);
+      setAnalyzedText(text);
       setResult(data);
     } catch (err) {
       setResult(null);
+      setAnalyzedText("");
       setError(err instanceof Error ? err.message : "Analyze failed.");
     } finally {
       setLoading(false);
     }
   }
+
+  async function onUploadFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".txt")) {
+      setError("Upload a .txt file.");
+      return;
+    }
+    const content = await file.text();
+    setText(content);
+    setError(null);
+  }
+
+  const highlightSource = result ? prepareForOffsets(analyzedText) : "";
+  const highlightSegments = result
+    ? segmentsFromOffsets(highlightSource, result.entities)
+    : [];
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8">
@@ -81,6 +164,20 @@ export default function Home() {
           >
             Use demo text
           </button>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-sm text-zinc-600 underline"
+          >
+            Upload .txt
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,text/plain"
+            className="hidden"
+            onChange={onUploadFile}
+          />
         </div>
       </form>
 
@@ -93,18 +190,59 @@ export default function Home() {
       {result ? (
         <div className="mt-8 space-y-8">
           <section>
-            <h2 className="text-lg font-medium">Tokens</h2>
-            <p className="mt-2 flex flex-wrap gap-1">
-              {result.tokens.map((token, index) => (
-                <span
-                  key={`${token}-${index}`}
-                  className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 font-mono text-xs"
-                >
-                  {token}
-                </span>
-              ))}
+            <h2 className="text-lg font-medium">NER highlight</h2>
+            <p
+              className="mt-2 rounded-md border border-zinc-200 bg-white p-3 text-sm leading-7 whitespace-pre-wrap"
+              data-testid="ner-highlight"
+            >
+              {highlightSegments.map((segment, index) =>
+                segment.label ? (
+                  <mark
+                    key={`${segment.label}-${index}`}
+                    className={`rounded px-0.5 ${labelClass(segment.label)}`}
+                    title={segment.label}
+                  >
+                    {segment.text}
+                  </mark>
+                ) : (
+                  <span key={`plain-${index}`}>{segment.text}</span>
+                ),
+              )}
             </p>
+            <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+              {NER_LEGEND.map((item) => (
+                <li key={item.label}>
+                  <span
+                    className={`rounded px-1.5 py-0.5 font-medium ${labelClass(item.label)}`}
+                  >
+                    {item.label}
+                  </span>{" "}
+                  <span className="text-zinc-600">{item.meaning}</span>
+                </li>
+              ))}
+            </ul>
           </section>
+
+          <section>
+            <h2 className="text-lg font-medium">Tokens</h2>
+            <TokenList tokens={result.tokens} />
+          </section>
+
+          {result.nltk_tokens && result.nltk_tokens.length > 0 ? (
+            <section>
+              <h2 className="text-lg font-medium">spaCy vs NLTK tokens</h2>
+              <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <h3 className="text-sm font-medium text-zinc-700">spaCy</h3>
+                  <TokenList tokens={result.tokens} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-zinc-700">NLTK</h3>
+                  <TokenList tokens={result.nltk_tokens} />
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section>
             <h2 className="text-lg font-medium">Sentences</h2>
@@ -197,6 +335,11 @@ export default function Home() {
           </section>
 
           <section>
+            <h2 className="text-lg font-medium">Word-cloud</h2>
+            <WordCloud items={result.tfidf} />
+          </section>
+
+          <section>
             <h2 className="text-lg font-medium">Keywords</h2>
             <p className="mt-2 flex flex-wrap gap-2">
               {result.keywords.map((keyword) => (
@@ -208,6 +351,17 @@ export default function Home() {
                 </span>
               ))}
             </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-medium">Export</h2>
+            <button
+              type="button"
+              onClick={() => exportResultJson(result)}
+              className="mt-2 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm"
+            >
+              Download result JSON
+            </button>
           </section>
         </div>
       ) : null}
