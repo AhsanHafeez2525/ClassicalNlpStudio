@@ -13,6 +13,7 @@ from app.nlp.pipeline import (
     sentiment_result,
     tokenize_result,
 )
+from app.routers import analyze as analyze_router
 
 load_dotenv()
 
@@ -25,8 +26,9 @@ def get_nlp():
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
-    get_nlp()
+async def lifespan(app: FastAPI):
+    nlp = get_nlp()
+    app.state.nlp = nlp
     yield
 
 
@@ -39,6 +41,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(analyze_router.router)
 
 
 class TextIn(BaseModel):
