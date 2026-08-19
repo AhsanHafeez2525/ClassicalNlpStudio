@@ -3,9 +3,16 @@ from functools import lru_cache
 
 import spacy
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+
+from app.nlp.pipeline import (
+    ner_result,
+    pos_result,
+    sentiment_result,
+    tokenize_result,
+)
 
 load_dotenv()
 
@@ -34,8 +41,8 @@ app.add_middleware(
 )
 
 
-class TokenizeIn(BaseModel):
-    text: str = Field(..., min_length=1)
+class TextIn(BaseModel):
+    text: str
 
 
 @app.get("/health")
@@ -49,12 +56,20 @@ def health():
 
 
 @app.post("/tokenize")
-def tokenize(body: TokenizeIn):
-    text = body.text.strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="text must not be empty")
-    doc = get_nlp()(text)
-    return {
-        "tokens": [t.text for t in doc if not t.is_space],
-        "sentences": [s.text for s in doc.sents],
-    }
+def tokenize(body: TextIn):
+    return tokenize_result(get_nlp(), body.text)
+
+
+@app.post("/pos")
+def pos_route(body: TextIn):
+    return pos_result(get_nlp(), body.text)
+
+
+@app.post("/ner")
+def ner_route(body: TextIn):
+    return ner_result(get_nlp(), body.text)
+
+
+@app.post("/sentiment")
+def sentiment_route(body: TextIn):
+    return sentiment_result(body.text)
