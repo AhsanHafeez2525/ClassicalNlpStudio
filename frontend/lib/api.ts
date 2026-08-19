@@ -36,16 +36,13 @@ export type AnalyzeResult = {
   keywords: string[];
 };
 
-export async function analyzeText(
-  text: string,
-  save = false,
-): Promise<AnalyzeResult> {
+export async function analyzeText(text: string): Promise<AnalyzeResult> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, save }),
+      body: JSON.stringify({ text }),
     });
   } catch {
     throw new Error(

@@ -1,13 +1,14 @@
 # Classical NLP Studio
 
-Text analysis platform: paste text, run a classical NLP pipeline (tokenize, POS, NER, sentiment, TF-IDF, keywords), and optionally save results to MongoDB.
+Text analysis platform: paste text, run a classical NLP pipeline (tokenize, POS, NER, sentiment, TF-IDF, keywords).
 
 ## Stack
 
 - **Frontend:** Next.js
 - **Backend:** FastAPI
 - **NLP:** spaCy, NLTK (VADER), scikit-learn
-- **DB:** MongoDB (optional history)
+
+No database. Analyze is in-memory only.
 
 ## Run the backend
 

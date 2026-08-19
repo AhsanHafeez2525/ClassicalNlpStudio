@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 
 import spacy
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,8 +13,6 @@ from app.nlp.pipeline import (
     tokenize_result,
 )
 from app.routers import analyze as analyze_router
-
-load_dotenv()
 
 SPACY_MODEL = "en_core_web_sm"
 

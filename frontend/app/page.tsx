@@ -35,7 +35,7 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const data = await analyzeText(text, false);
+      const data = await analyzeText(text);
       setResult(data);
     } catch (err) {
       setResult(null);

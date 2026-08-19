@@ -3,6 +3,4 @@ uvicorn
 spacy
 nltk
 scikit-learn
-pymongo
-python-dotenv
 pydantic
