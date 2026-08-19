@@ -1,6 +1,8 @@
+import os
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
+import nltk
 import spacy
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,8 +24,22 @@ def get_nlp():
     return spacy.load(SPACY_MODEL)
 
 
+def ensure_nltk() -> None:
+    checks = (
+        ("vader_lexicon", "sentiment/vader_lexicon.zip"),
+        ("punkt", "tokenizers/punkt"),
+        ("punkt_tab", "tokenizers/punkt_tab"),
+    )
+    for package, resource in checks:
+        try:
+            nltk.data.find(resource)
+        except LookupError:
+            nltk.download(package, quiet=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_nltk()
     nlp = get_nlp()
     app.state.nlp = nlp
     yield
@@ -31,9 +47,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Classical NLP Studio", lifespan=lifespan)
 
+_frontend_origin = os.getenv("FRONTEND_ORIGIN", "").rstrip("/")
+_allow_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "*",
+]
+if _frontend_origin:
+    _allow_origins.append(_frontend_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
+    allow_origins=_allow_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -47,7 +47,7 @@ export async function analyzeText(text: string): Promise<AnalyzeResult> {
     });
   } catch {
     throw new Error(
-      "Cannot reach the API. Is the backend running on port 8000?",
+      "Cannot reach the API. Check NEXT_PUBLIC_API_URL and that the backend is running.",
     );
   }
 
